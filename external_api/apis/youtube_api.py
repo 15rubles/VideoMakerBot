@@ -17,10 +17,10 @@ class YouTubeController:
             return
 
     def download_video(self, link, save_path):
-        self.__download_video_piece(link, save_path, 'video', 'p', 'resolution')
+        return self.__download_video_piece(link, save_path, 'video', 'p', 'resolution')
 
     def download_audio(self, link, save_path):
-        self.__download_video_piece(link, save_path, 'audio', 'kbps', 'abr', True)
+        return self.__download_video_piece(link, save_path, 'audio', 'kbps', 'abr', True)
 
     def __download_video_piece(self, link, save_path, piece_type, replace_part, attr, mp3=False):
         try:
@@ -64,4 +64,10 @@ class YouTubeController:
                 )
 
         if d_piece is not None:
-            d_piece.download(output_path=save_path, mp3=mp3)
+            # Construct the output path manually if needed
+            output_path = d_piece.download(output_path=save_path, mp3=mp3)
+            print(link + ' DOWNLOAD!!' + ('MP3' if mp3 else ''))
+
+            # Return the path of the downloaded file
+            return output_path
+        return None
