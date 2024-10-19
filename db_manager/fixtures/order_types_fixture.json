@@ -1,0 +1,23 @@
+[
+  {
+    "model": "db_manager.OrderTypesDBNames",
+    "pk": 1,
+    "fields": {
+      "order_type_db_name": "youtube_two_videos"
+    }
+  },
+  {
+    "model": "db_manager.OrderTypesDBNames",
+    "pk": 2,
+    "fields": {
+      "order_type_db_name": "user_uploaded_video"
+    }
+  },
+  {
+    "model": "db_manager.OrderTypesDBNames",
+    "pk": 3,
+    "fields": {
+      "order_type_db_name": "reddit_video"
+    }
+  }
+]
