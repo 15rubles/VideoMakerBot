@@ -3,14 +3,14 @@ from db_manager.models import *
 
 # Register your models here.
 
-class UsersAdmin(admin.ModelAdmin):
-    list_display = ['id','username','client_type','registered_at']
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ['user','client_type','registered_at']
 
 class SocialMediaAccountsAdmin(admin.ModelAdmin):
     list_display = ['id','user','account_type','account_username']
 
 class GeneratedVideosAdmin(admin.ModelAdmin):
-    list_display = ['id','user','creation_date','uploaded_date','is_uploaded','is_uploaded_manually_by_user']
+    list_display = ['id','user','video_ref_id','creation_date','uploaded_date','is_uploaded','is_uploaded_manually_by_user']
 
 class OrderTypesDBNamesAdmin(admin.ModelAdmin):
     list_display = ['order_type_db_name']
@@ -27,7 +27,7 @@ class UserVideoOrdersAdmin(admin.ModelAdmin):
 class RedditVideoOrdersAdmin(admin.ModelAdmin):
     list_display = ['order','reddit_link','youtube_video_link','description','hashtags']
 
-admin.site.register(Users, UsersAdmin)
+admin.site.register(Profile, ProfileAdmin)
 admin.site.register(SocialMediaAccounts, SocialMediaAccountsAdmin)
 admin.site.register(GeneratedVideos, GeneratedVideosAdmin)
 admin.site.register(OrderTypesDBNames, OrderTypesDBNamesAdmin)
