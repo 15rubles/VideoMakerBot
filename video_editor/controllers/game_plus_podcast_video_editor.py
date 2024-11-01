@@ -1,7 +1,5 @@
 import glob
 import os
-import shutil
-
 import ffmpeg
 import whisper
 from PIL import Image, ImageDraw, ImageFont
@@ -18,12 +16,30 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         self.video_quality = video_quality
         self.second_video_link = second_video_link
         self.main_video_link = main_video_link
-        self.save_path = "D:\\youtubeVideosForTest"
+        self.save_path = self.__get_save_path_dir()
         self.yt = YouTubeController(video_quality=self.video_quality, audio_quality=self.audio_quality)
         self.fps = fps
         self.video_width = video_width
         self.video_height = video_height
-        self.font = self.save_path + '\\' + font
+        self.font = os.path.join(self.__get_font_path(), font)
+
+    def __get_save_path_dir(self):
+        current_script_path = os.path.abspath(__file__)
+        video_editor_path = os.path.dirname(os.path.dirname(current_script_path))
+        downloaded_files_path = os.path.join(video_editor_path, "downloaded_files")
+        output_videos_path = os.path.join(downloaded_files_path, "output_videos")
+        subtitles_path = os.path.join(downloaded_files_path, "subtitles")
+        os.makedirs(downloaded_files_path, exist_ok=True)
+        os.makedirs(output_videos_path, exist_ok=True)
+        os.makedirs(subtitles_path, exist_ok=True)
+
+        return downloaded_files_path
+
+    def __get_font_path(self):
+        current_script_path = os.path.abspath(__file__)
+        video_editor_path = os.path.dirname(os.path.dirname(current_script_path))
+        fonts_files_path = os.path.join(video_editor_path, "fonts")
+        return fonts_files_path
 
     def generateVideo(self, start_time, end_time, output_video_name):
         main_video_mp4 = self.yt.download_video(self.main_video_link, save_path=self.save_path)
@@ -65,7 +81,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         base_video = self.__generate_subtitles_overlay_video(subtitles_text, end_time - start_time, base_video)
         (
             base_video
-            .output(self.save_path + '\\output_videos\\' + output_video_name + '.mp4', framerate=self.fps,
+            .output(os.path.join(self.save_path, 'output_videos', output_video_name + '.mp4'), framerate=self.fps,
                     t=end_time - start_time)
             .run(overwrite_output=True)
         )
@@ -93,7 +109,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         return words
 
     def __crop_audio(self, file_audio, start_seconds, end_seconds):
-        output = "tmp.mp3"
+        output = os.path.join(self.save_path, "tmp.mp3")
 
         (
             ffmpeg.input(file_audio)
@@ -106,7 +122,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
 
     def __generate_subtitles_overlay_video(self, subtitles_text, duration, ffmpeg_command, max_segment_len=35):
         # Directory to store generated subtitle images
-        subtitles_dir = self.save_path + "\\subtitles"
+        subtitles_dir = os.path.join(self.save_path, 'subtitles')
 
         # Create images for each subtitle and add them to video
         index = 0
@@ -115,7 +131,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         start_time = 0
         for i, word in enumerate(subtitles_text):
             if len(segment + ' ' + word['word']) > max_segment_len or segment.endswith(('.', '!', '?')):
-                image_path = f"{subtitles_dir}\\subtitle_{index}.png"
+                image_path = os.path.join(subtitles_dir, f"subtitle_{index}.png")
                 ffmpeg_command = self.__add_segment_to_subtitles(segment, image_path, start_time,
                                                                  subtitles_text[i-1]['end'],
                                                                  self.video_height / 2 - subtitles_height / 2,
@@ -126,7 +142,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
             segment += ' ' + word['word']
 
         if segment != '':
-            image_path = f"{subtitles_dir}\\subtitle_{index}.png"
+            image_path = os.path.join(subtitles_dir, f"subtitle_{index}.png")
             ffmpeg_command = self.__add_segment_to_subtitles(segment, image_path, start_time, duration,
                                                              self.video_height / 2 - subtitles_height / 2,
                                                              ffmpeg_command)
@@ -134,8 +150,8 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         return ffmpeg_command
 
     def __delete_subtitles_images(self):
-        subtitles_dir = self.save_path + "\\subtitles"
-        files = glob.glob(subtitles_dir + "\\*")
+        subtitles_dir = os.path.join(self.save_path, 'subtitles', '*')
+        files = glob.glob(subtitles_dir)
         for f in files:
             os.remove(f)
 
@@ -148,25 +164,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
                                       enable=f'between(t,{start},{end})'
                                       )
 
-    def __delete_and_copy_file(self, original_file_path, new_file_name):
-        # Check if the original file exists
-        if os.path.exists(original_file_path):
-            # Create a new file path for the copy
-            new_file_path = os.path.join(os.path.dirname(original_file_path), new_file_name)
-            if os.path.exists(new_file_path):
-                os.remove(new_file_path)
-
-            # Copy the original file to the new file path
-            shutil.copy2(original_file_path, new_file_path)
-            print(f"Copied to: {new_file_path}")
-
-            # Delete the original MP3 file
-            os.remove(original_file_path)
-            print(f"Deleted: {original_file_path}")
-        else:
-            print(f"File does not exist: {original_file_path}")
-
-    def __create_subtitle_image(self, text, width=1080, height=150, font_size=65):
+    def __create_subtitle_image(self, text, width=1080, height=150, font_size=65, outline_thickness=5):
         # Create a transparent image
         image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
@@ -181,8 +179,18 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         text_x = (width - text_size[0]) // 2
         text_y = (height - text_size[1]) // 2
 
-        # Draw the text with white color (or change as needed)
-        draw.text((text_x, text_y), text, fill=(255, 255, 0, 255), font=font)
+        # Define the colors
+        outline_color = (0, 0, 0, 255)
+        fill_color = (255, 255, 0, 255)  # Yellow fill
+
+        # Draw the outline by drawing the text multiple times around the original position
+        for dx in range(-outline_thickness, outline_thickness + 1):
+            for dy in range(-outline_thickness, outline_thickness + 1):
+                if dx != 0 or dy != 0:  # Skip the original position
+                    draw.text((text_x + dx, text_y + dy), text, font=font, fill=outline_color)
+
+        # Draw the main text
+        draw.text((text_x, text_y), text, fill=fill_color, font=font)
 
         return image
 
