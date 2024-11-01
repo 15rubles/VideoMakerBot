@@ -13,7 +13,7 @@ class ManyVideoGenerator:
 gppve = GamePlusPodcastVideoEditor('https://www.youtube.com/watch?v=HOhMSacJFFY',
                                    'https://www.youtube.com/watch?v=iYipwtIa1Po', video_quality=1080)
 
-timestamps = [(0, 20)]
+timestamps = [(0, 20), (0, 5)]
 
 ManyVideoGenerator.generate(timestamps, 'output_video_name', gppve)
 

@@ -1,10 +1,13 @@
+import glob
+import os
+import shutil
+
 import ffmpeg
 import whisper
-import os, glob, shutil
+from PIL import Image, ImageDraw, ImageFont
 
 from external_api.apis.youtube_api import YouTubeController
 from video_editor.controllers.generic_video_editor import GenericVideoEditor
-from PIL import Image, ImageDraw, ImageFont
 
 
 class GamePlusPodcastVideoEditor(GenericVideoEditor):
@@ -15,7 +18,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         self.video_quality = video_quality
         self.second_video_link = second_video_link
         self.main_video_link = main_video_link
-        self.save_path = "D:\youtubeVideosForTest"
+        self.save_path = "D:\\youtubeVideosForTest"
         self.yt = YouTubeController(video_quality=self.video_quality, audio_quality=self.audio_quality)
         self.fps = fps
         self.video_width = video_width
@@ -28,14 +31,12 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
 
         main_video_mp3 = self.yt.download_audio(self.main_video_link, save_path=self.save_path)
 
-        subtitles_text = self.__generateSubtitles(main_video_mp3, start_time, end_time)
+        subtitles_text = self.__generate_subtitles(main_video_mp3, start_time, end_time)
 
-        subtitle_video = self.__generateSubtitlesOwerlayVideo(subtitles_text, end_time - start_time)
-
-        self.__stack_videos(main_video_mp4, second_video_mp4, subtitle_video, main_video_mp3, output_video_name,
+        self.__stack_videos(main_video_mp4, second_video_mp4, subtitles_text, main_video_mp3, output_video_name,
                             start_time, end_time)
 
-    def __stack_videos(self, overlay_video_path, background_video_path, subtitle_video_path, audio_path,
+    def __stack_videos(self, overlay_video_path, background_video_path, subtitles_text, audio_path,
                        output_video_name, start_time, end_time):
         target_height = self.video_height
         target_width = self.video_width
@@ -58,18 +59,20 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
                             .filter('scale', bg_target_width, -1)
                             .filter('crop', target_width, target_height,
                                     bg_target_width / 2 - target_width / 2, 0))
+
+        base_video = (ffmpeg.concat(background_video, ffmpeg.input(audio_path, ss=start_time), v=1, a=1)
+                      .overlay(overlay_video))
+        base_video = self.__generate_subtitles_overlay_video(subtitles_text, end_time - start_time, base_video)
         (
-            ffmpeg.concat(background_video,
-                          ffmpeg.input(audio_path, ss=start_time), v=1, a=1)
-            .overlay(overlay_video)
-            .overlay(ffmpeg.input(subtitle_video_path).filter('format', 'yuva420p')
-                     .filter('chromakey', 'black'))
+            base_video
             .output(self.save_path + '\\output_videos\\' + output_video_name + '.mp4', framerate=self.fps,
                     t=end_time - start_time)
             .run(overwrite_output=True)
         )
 
-    def __generateSubtitles(self, link, start_time, end_time):
+        self.__delete_subtitles_images()
+
+    def __generate_subtitles(self, link, start_time, end_time):
         # Load the Whisper model (you can use different models like 'tiny', 'base', 'small', 'medium', 'large')
         model = whisper.load_model("base.en")
 
@@ -101,29 +104,11 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
 
         return output
 
-    def __generateSubtitlesOwerlayVideo(self, subtitles_text, duration, max_segment_len=35):
+    def __generate_subtitles_overlay_video(self, subtitles_text, duration, ffmpeg_command, max_segment_len=35):
         # Directory to store generated subtitle images
         subtitles_dir = self.save_path + "\\subtitles"
 
-        # create empty video for subtitles
-        width = self.video_width
-        height = self.video_height
-        color = "0x00000000"  # transparent
-        subtitles_video = self.save_path + '\\subtitles_video.mov'
-
-        # Create an empty video with a specific size and length
-        ffmpeg.input(
-            'color=c={}:s={}x{}:d={}'.format(color, width, height, duration),
-            f='lavfi'
-        ).output(
-            subtitles_video,
-            pix_fmt='yuva420p',
-            vcodec='prores_ks',
-            r=self.fps  # Frames per second
-        ).run(overwrite_output=True)
-
         # Create images for each subtitle and add them to video
-        subtitles_video_final = self.save_path + '\\subtitles_video_final.mp4'
         index = 0
         segment = ''
         subtitles_height = 150
@@ -131,9 +116,10 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         for i, word in enumerate(subtitles_text):
             if len(segment + ' ' + word['word']) > max_segment_len or segment.endswith(('.', '!', '?')):
                 image_path = f"{subtitles_dir}\\subtitle_{index}.png"
-                self.__add_segment_to_subtitles(segment, image_path, start_time, subtitles_text[i-1]['end'],
-                                                subtitles_video, self.video_height / 2 - subtitles_height / 2,
-                                                subtitles_video_final)
+                ffmpeg_command = self.__add_segment_to_subtitles(segment, image_path, start_time,
+                                                                 subtitles_text[i-1]['end'],
+                                                                 self.video_height / 2 - subtitles_height / 2,
+                                                                 ffmpeg_command)
                 segment = ''
                 index += 1
                 start_time = subtitles_text[i]['start']
@@ -141,36 +127,26 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
 
         if segment != '':
             image_path = f"{subtitles_dir}\\subtitle_{index}.png"
-            self.__add_segment_to_subtitles(segment, image_path, start_time, duration,
-                                            subtitles_video, self.video_height / 2 - subtitles_height / 2,
-                                            subtitles_video_final)
+            ffmpeg_command = self.__add_segment_to_subtitles(segment, image_path, start_time, duration,
+                                                             self.video_height / 2 - subtitles_height / 2,
+                                                             ffmpeg_command)
 
-        # Delete all files in folder
+        return ffmpeg_command
+
+    def __delete_subtitles_images(self):
+        subtitles_dir = self.save_path + "\\subtitles"
         files = glob.glob(subtitles_dir + "\\*")
         for f in files:
             os.remove(f)
 
-        return subtitles_video
-
-    def __add_segment_to_subtitles(self, segment, image_path, start, end, subtitles_video,
-                                   subtitle_y, subtitles_video_final, ffmpeg_command):
+    def __add_segment_to_subtitles(self, segment, image_path, start, end, subtitle_y, ffmpeg_command):
         image = self.__create_subtitle_image(segment)
         image.save(image_path)
-        try:
-            (
-                ffmpeg.input(subtitles_video)
-                .overlay(ffmpeg.input(image_path, loop=1, t=end - start),
-                         x=0,
-                         y=subtitle_y,
-                         enable=f'between(t,{start},{end})'
-                         )
-                .output(subtitles_video_final, r=self.fps)
-                .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-            )
-        except ffmpeg.Error as e:
-            print('stderr:', e.stderr.decode('utf8'))
-            print('stdout:', e.stdout.decode('utf8'))
-        self.__delete_and_copy_file(subtitles_video_final, subtitles_video)
+        return ffmpeg_command.overlay(ffmpeg.input(image_path, loop=1, t=end - start),
+                                      x=0,
+                                      y=subtitle_y,
+                                      enable=f'between(t,{start},{end})'
+                                      )
 
     def __delete_and_copy_file(self, original_file_path, new_file_name):
         # Check if the original file exists
