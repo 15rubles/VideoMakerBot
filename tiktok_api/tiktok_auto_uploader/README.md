@@ -13,12 +13,6 @@ Please make sure `node` is in your environment path before running, as it is req
 --------------------------------------
 ### Installation
 
-Clone the repository.
-
-```bash
-git clone https://github.com/makiisthenes/TiktokAutoUploader.git
-```
-
 Install requirements for package.
 
 ```bash
