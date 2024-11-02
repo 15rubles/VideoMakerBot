@@ -249,3 +249,5 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 /video_editor/downloaded_files/
+/tiktok_api/tiktok_auto_uploader/CookiesDir/
+/tiktok_api/tiktok_auto_uploader/tiktok_uploader/tiktok-signature/node_modules/
