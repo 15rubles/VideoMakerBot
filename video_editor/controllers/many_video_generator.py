@@ -14,10 +14,10 @@ class ManyVideoGenerator:
         return videos_paths
 
 
-gppve = GamePlusPodcastVideoEditor('https://www.youtube.com/watch?v=HOhMSacJFFY',
+gppve = GamePlusPodcastVideoEditor('https://www.youtube.com/watch?v=MyAWr7qImdQ',
                                    'https://www.youtube.com/watch?v=iYipwtIa1Po', video_quality=1080)
 
-timestamps = [(0, 5)]
+timestamps = [(3, 72)]
 
 paths = ManyVideoGenerator.generate(timestamps, 'output_video_name', gppve)
 
@@ -26,5 +26,5 @@ username = 'shortvideos799'
 login_to_tiktok_account(username)
 
 for path in paths:
-    upload_video(username, path, "new video #hashtag #bshtag")
+    upload_video(username, path, "How guys with Cybertrucks think we react #tesla #cybertruck #elonmask")
 

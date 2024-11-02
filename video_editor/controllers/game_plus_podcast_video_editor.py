@@ -123,7 +123,8 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
 
         return output
 
-    def __generate_subtitles_overlay_video(self, subtitles_text, duration, ffmpeg_command, max_segment_len=35):
+    def __generate_subtitles_overlay_video(self, subtitles_text, duration, ffmpeg_command, max_segment_len=35,
+                                           max_pause_len=0.35):
         # Directory to store generated subtitle images
         subtitles_dir = os.path.join(self.save_path, 'subtitles')
 
@@ -132,8 +133,12 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         segment = ''
         subtitles_height = 150
         start_time = 0
+        if len(subtitles_text) > 0:
+            start_time = subtitles_text[0]['start']
+
         for i, word in enumerate(subtitles_text):
-            if len(segment + ' ' + word['word']) > max_segment_len or segment.endswith(('.', '!', '?')):
+            if (len(segment + ' ' + word['word']) > max_segment_len or segment.endswith(('.', '!', '?'))
+                    or subtitles_text[i]['end'] - subtitles_text[i-1]['end'] > max_pause_len):
                 image_path = os.path.join(subtitles_dir, f"subtitle_{index}.png")
                 ffmpeg_command = self.__add_segment_to_subtitles(segment, image_path, start_time,
                                                                  subtitles_text[i-1]['end'],
