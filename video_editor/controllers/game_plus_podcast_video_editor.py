@@ -49,7 +49,7 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
 
         subtitles_text = self.__generate_subtitles(main_video_mp3, start_time, end_time)
 
-        self.__stack_videos(main_video_mp4, second_video_mp4, subtitles_text, main_video_mp3, output_video_name,
+        return self.__stack_videos(main_video_mp4, second_video_mp4, subtitles_text, main_video_mp3, output_video_name,
                             start_time, end_time)
 
     def __stack_videos(self, overlay_video_path, background_video_path, subtitles_text, audio_path,
@@ -79,14 +79,17 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
         base_video = (ffmpeg.concat(background_video, ffmpeg.input(audio_path, ss=start_time), v=1, a=1)
                       .overlay(overlay_video))
         base_video = self.__generate_subtitles_overlay_video(subtitles_text, end_time - start_time, base_video)
+        output_video_path = os.path.join(self.save_path, 'output_videos', output_video_name + '.mp4')
         (
             base_video
-            .output(os.path.join(self.save_path, 'output_videos', output_video_name + '.mp4'), framerate=self.fps,
+            .output(output_video_path, framerate=self.fps,
                     t=end_time - start_time)
             .run(overwrite_output=True)
         )
 
         self.__delete_subtitles_images()
+
+        return output_video_path
 
     def __generate_subtitles(self, link, start_time, end_time):
         # Load the Whisper model (you can use different models like 'tiny', 'base', 'small', 'medium', 'large')
@@ -175,9 +178,11 @@ class GamePlusPodcastVideoEditor(GenericVideoEditor):
             font = ImageFont.load_default()
 
         # Get the size of the text and position it in the center
-        text_size = draw.textsize(text, font=font)
-        text_x = (width - text_size[0]) // 2
-        text_y = (height - text_size[1]) // 2
+        text_bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+        text_x = (width - text_width) // 2
+        text_y = (height - text_height) // 2
 
         # Define the colors
         outline_color = (0, 0, 0, 255)
